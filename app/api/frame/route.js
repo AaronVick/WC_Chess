@@ -3,7 +3,7 @@ import { Chess } from 'chess.js';
 import { ChessEngine } from '../../../lib/chess-engine';
 import { createGame, getGame, updateGame } from '../../../lib/game-state';
 
-const BASE_URL = process.env.NEXT_PUBLIC_HOST;
+const BASE_URL = process.env.NEXT_PUBLIC_HOST || 'https://wc-chess.vercel.app';
 
 // Generate move hints based on current position
 function generateMoveHints(fen) {
@@ -45,41 +45,29 @@ function getImageUrl(gameState, instructions = '') {
 // GET: Initial frame load
 export async function GET(req) {
   try {
-    const searchParams = req.nextUrl.searchParams;
-    const gameId = searchParams.get('gameId');
-    
-    let gameState;
-    if (gameId) {
-      gameState = await getGame(gameId);
-    }
-    
-    if (!gameState) {
-      gameState = await createGame();
-    }
-
+    let gameState = await createGame();
     const instructions = generateInstructions(gameState);
     const imageUrl = getImageUrl(gameState, instructions);
 
+    // Required HTML response for Farcaster frames
     return new NextResponse(
       `<!DOCTYPE html>
       <html>
         <head>
           <title>Chess Frame Game</title>
           <meta property="fc:frame" content="vNext" />
+          <meta property="fc:frame:post_url" content="${BASE_URL}/api/frame" />
           <meta property="fc:frame:image" content="${imageUrl}" />
-          <meta property="fc:frame:image:aspect_ratio" content="1:1" />
           <meta property="fc:frame:button:1" content="Make Move" />
           <meta property="fc:frame:button:2" content="New Game" />
           <meta property="fc:frame:button:3" content="Show Legal Moves" />
           <meta property="fc:frame:input:text" content="Type a move (e.g., e4, Nf3)" />
-          <meta property="og:title" content="Chess Frame Game" />
-          <meta property="og:description" content="Play chess against an AI opponent on Farcaster" />
-          <meta property="og:image" content="${imageUrl}" />
         </head>
       </html>`,
       {
         headers: {
           'Content-Type': 'text/html',
+          'Cache-Control': 'no-store, must-revalidate',
         },
       }
     );
@@ -93,24 +81,24 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const data = await req.json();
-    const { untrustedData } = data;
     
-    if (!untrustedData) {
+    // Validate Farcaster frame data
+    if (!data?.untrustedData) {
       throw new Error('Invalid frame data');
     }
 
-    const { buttonIndex, inputText, state } = untrustedData;
+    const { buttonIndex, inputText, state } = data.untrustedData;
     let gameState;
 
-    // Handle New Game
+    // Handle New Game button
     if (buttonIndex === 2) {
       gameState = await createGame();
-      const instructions = 'New game started! White to move.';
       return new NextResponse(
         JSON.stringify({
           frames: [{
             version: 'vNext',
-            image: getImageUrl(gameState, instructions),
+            postUrl: `${BASE_URL}/api/frame`,
+            image: getImageUrl(gameState, 'New game started! White to move.'),
             buttons: [
               { text: 'Make Move' },
               { text: 'New Game' },
@@ -124,17 +112,24 @@ export async function POST(req) {
       );
     }
 
-    // Handle Show Legal Moves
+    // Get existing game or create new one
+    gameState = state?.gameId ? 
+      (await getGame(state.gameId)) || await createGame() : 
+      await createGame();
+
+    // Handle Show Legal Moves button
     if (buttonIndex === 3) {
-      gameState = await getGame(state?.gameId) || await createGame();
       const chess = new Chess(gameState.fen);
       const legalMoves = chess.moves({ verbose: true }).slice(0, 5);
-      const moveDisplay = legalMoves.map(m => `${m.piece.toUpperCase()}${m.from}-${m.to}`).join(', ');
+      const moveDisplay = legalMoves
+        .map(m => `${m.piece.toUpperCase()}${m.from}-${m.to}`)
+        .join(', ');
       
       return new NextResponse(
         JSON.stringify({
           frames: [{
             version: 'vNext',
+            postUrl: `${BASE_URL}/api/frame`,
             image: getImageUrl(gameState, `Legal moves: ${moveDisplay}`),
             buttons: [
               { text: 'Make Move' },
@@ -149,16 +144,14 @@ export async function POST(req) {
       );
     }
 
-    // Handle Make Move
+    // Handle Make Move button
     if (buttonIndex === 1) {
-      gameState = await getGame(state?.gameId) || await createGame();
-      const chess = new Chess(gameState.fen);
-
-      if (!inputText) {
+      if (!inputText?.trim()) {
         return new NextResponse(
           JSON.stringify({
             frames: [{
               version: 'vNext',
+              postUrl: `${BASE_URL}/api/frame`,
               image: getImageUrl(gameState, 'Please enter a move first!'),
               buttons: [
                 { text: 'Make Move' },
@@ -174,14 +167,15 @@ export async function POST(req) {
       }
 
       try {
+        const chess = new Chess(gameState.fen);
+        
         // Make player's move
         const playerMove = chess.move(inputText, { sloppy: true });
         
-        // Make computer's move if the game isn't over
+        // Make computer's move if game isn't over
         if (!chess.isGameOver()) {
           const engine = new ChessEngine(chess.fen());
           const computerMove = engine.getBestMove();
-          
           if (computerMove) {
             chess.move(computerMove);
           }
@@ -202,6 +196,7 @@ export async function POST(req) {
           JSON.stringify({
             frames: [{
               version: 'vNext',
+              postUrl: `${BASE_URL}/api/frame`,
               image: getImageUrl(gameState, instructions),
               buttons: [
                 { text: 'Make Move' },
@@ -224,6 +219,7 @@ export async function POST(req) {
           JSON.stringify({
             frames: [{
               version: 'vNext',
+              postUrl: `${BASE_URL}/api/frame`,
               image: getImageUrl(gameState, `Invalid move! Try: ${moveHints}`),
               buttons: [
                 { text: 'Make Move' },
@@ -239,6 +235,7 @@ export async function POST(req) {
       }
     }
 
+    // Invalid button index
     throw new Error('Invalid button index');
 
   } catch (error) {
@@ -247,6 +244,7 @@ export async function POST(req) {
       JSON.stringify({
         frames: [{
           version: 'vNext',
+          postUrl: `${BASE_URL}/api/frame`,
           image: `${BASE_URL}/api/image?error=internal&instructions=Something went wrong. Try again.`,
           buttons: [
             { text: 'Try Again' },
