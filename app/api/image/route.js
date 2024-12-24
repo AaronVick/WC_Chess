@@ -12,10 +12,18 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
 
+    // Log incoming request URL and parameters
+    console.log('Request URL:', req.url);
+
     // Use a default FEN string
     const fen = searchParams.get('fen') || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    console.log('FEN string:', fen);
+
     const lastMove = searchParams.get('lastMove');
+    console.log('Last move:', lastMove);
+
     const instructions = searchParams.get('instructions');
+    console.log('Instructions:', instructions);
 
     const chess = new Chess();
 
@@ -26,6 +34,7 @@ export async function GET(req) {
     }
 
     const board = chess.board();
+    console.log('Generated board:', board);
 
     const size = 1000;
     const squareSize = Math.floor(size * 0.8 / 8);
