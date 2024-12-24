@@ -12,23 +12,24 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
 
-    // Corrected FEN string to ensure validity
+    // Use a default FEN string
     const fen = searchParams.get('fen') || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const lastMove = searchParams.get('lastMove');
     const instructions = searchParams.get('instructions');
 
     const chess = new Chess();
 
-    // Validate FEN by attempting to load it
+    // Attempt to load the FEN string, but default to the initial board if invalid
     if (!chess.load(fen)) {
-      throw new Error(`Invalid FEN string: ${fen}`);
+      console.warn(`Invalid FEN string received: ${fen}. Falling back to default.`);
+      chess.load('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
     }
 
     const board = chess.board();
 
     const size = 1000;
-    const squareSize = Math.floor(size * 0.8 / 8); // 80% of size for board
-    const fontSize = Math.floor(squareSize * 0.7); // 70% of square size for pieces
+    const squareSize = Math.floor(size * 0.8 / 8);
+    const fontSize = Math.floor(squareSize * 0.7);
 
     return new ImageResponse(
       (
@@ -44,7 +45,6 @@ export async function GET(req) {
             padding: '20px',
           }}
         >
-          {/* Render Chess Board */}
           <div
             style={{
               display: 'grid',
@@ -83,7 +83,6 @@ export async function GET(req) {
             })}
           </div>
 
-          {/* Render Instructions */}
           {instructions && (
             <div
               style={{
@@ -99,7 +98,6 @@ export async function GET(req) {
             </div>
           )}
 
-          {/* Render Last Move */}
           {lastMove && (
             <div
               style={{
@@ -119,14 +117,41 @@ export async function GET(req) {
         headers: {
           'content-type': 'image/png',
           'cache-control': 'no-store, must-revalidate',
-          'access-control-allow-origin': '*',
+          'access-control-allow-origin': '*', // Ensure Farcaster validator can access the image
         },
       }
     );
   } catch (error) {
     console.error('Error generating chess board:', error);
-    return new Response(`Error generating chess board: ${error.message}`, {
-      status: 500,
-    });
+
+    // Return an error image instead of a 403 or 500
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#1a1a1a',
+            color: '#ffffff',
+            fontSize: '24px',
+            textAlign: 'center',
+          }}
+        >
+          Error generating chess board: {error.message}
+        </div>
+      ),
+      {
+        width: 1000,
+        height: 1000,
+        headers: {
+          'content-type': 'image/png',
+          'cache-control': 'no-store, must-revalidate',
+          'access-control-allow-origin': '*',
+        },
+      }
+    );
   }
 }
