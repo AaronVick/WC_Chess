@@ -57,13 +57,13 @@ export async function GET(req) {
           <div
             style={{
               display: 'flex',
-              flexWrap: 'wrap',
+              flexWrap: 'wrap', // Wraps squares into rows
               gap: '1px',
               padding: '10px',
               backgroundColor: '#404040',
               borderRadius: '8px',
-              width: `${squareSize * 8}px`,
-              height: `${squareSize * 8}px`,
+              width: `${squareSize * 8}px`, // Adjusted to match new board size
+              height: `${squareSize * 8}px`, // Adjusted to match new board size
             }}
           >
             {board.flat().map((piece, i) => {
@@ -83,7 +83,7 @@ export async function GET(req) {
                     justifyContent: 'center',
                     color: '#000000',
                     fontSize: `${fontSize}px`,
-                    fontFamily: 'serif',
+                    fontFamily: 'Arial Unicode MS, sans-serif', // Updated font
                   }}
                 >
                   {piece ? pieces[piece.color === 'w' ? piece.type.toUpperCase() : piece.type.toLowerCase()] : ''}
@@ -162,5 +162,34 @@ export async function GET(req) {
         },
       }
     );
+  }
+}
+
+// New POST handler for legal moves
+export async function POST(req) {
+  try {
+    const body = await req.json();
+    const { fen, showLegalMoves } = body;
+
+    const chess = new Chess();
+
+    if (!chess.load(fen)) {
+      throw new Error(`Invalid FEN: ${fen}`);
+    }
+
+    if (showLegalMoves) {
+      const moves = chess.moves({ verbose: true });
+      return new Response(JSON.stringify({ legalMoves: moves }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(null, { status: 400 });
+  } catch (error) {
+    console.error('Error handling request:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 400,
+    });
   }
 }
