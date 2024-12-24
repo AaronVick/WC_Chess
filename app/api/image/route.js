@@ -1,7 +1,5 @@
-// File: app/api/image/route.js
 import { ImageResponse } from '@vercel/og';
 import { Chess } from 'chess.js';
-import { NextResponse } from 'next/server';
 
 export const runtime = 'edge';
 
@@ -18,9 +16,14 @@ export async function GET(req) {
     const instructions = searchParams.get('instructions');
 
     const chess = new Chess(fen);
+
+    // Validate FEN
+    if (!chess.validate_fen(fen).valid) {
+      throw new Error('Invalid FEN string');
+    }
+
     const board = chess.board();
 
-    // Ensure width and height are equal for 1:1 aspect ratio
     const size = 1000;
     const squareSize = Math.floor(size * 0.8 / 8); // 80% of size for board
     const fontSize = Math.floor(squareSize * 0.7); // 70% of square size for pieces
@@ -39,7 +42,6 @@ export async function GET(req) {
             padding: '20px',
           }}
         >
-          {/* Chess Board */}
           <div
             style={{
               display: 'grid',
@@ -57,9 +59,10 @@ export async function GET(req) {
               const col = i % 8;
               const square = `${String.fromCharCode(97 + col)}${8 - row}`;
               const isBlackSquare = (row + col) % 2 === 1;
-              
+
               return (
                 <div
+                  key={square}
                   style={{
                     backgroundColor: isBlackSquare ? '#B58863' : '#F0D9B5',
                     width: `${squareSize}px`,
@@ -67,7 +70,7 @@ export async function GET(req) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: piece?.color === 'w' ? '#000000' : '#000000',
+                    color: '#000000',
                     fontSize: `${fontSize}px`,
                     fontFamily: 'serif',
                     position: 'relative',
@@ -105,7 +108,6 @@ export async function GET(req) {
             })}
           </div>
 
-          {/* Instructions */}
           {instructions && (
             <div
               style={{
@@ -121,7 +123,6 @@ export async function GET(req) {
             </div>
           )}
 
-          {/* Last Move */}
           {lastMove && (
             <div
               style={{
@@ -147,7 +148,6 @@ export async function GET(req) {
     );
   } catch (error) {
     console.error('Image generation error:', error);
-    // Return a simple error image
     return new ImageResponse(
       (
         <div
@@ -160,9 +160,10 @@ export async function GET(req) {
             backgroundColor: '#1a1a1a',
             color: '#ffffff',
             fontSize: '24px',
+            textAlign: 'center',
           }}
         >
-          Error generating chess board
+          Error generating chess board: {error.message}
         </div>
       ),
       {
