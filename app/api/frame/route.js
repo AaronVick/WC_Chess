@@ -30,46 +30,63 @@ function generateInstructions(gameState) {
   return 'Start a new game or make your move!';
 }
 
+function getImageUrl(gameState, instructions = '') {
+  const imageUrl = new URL('/api/image', BASE_URL);
+  imageUrl.searchParams.set('fen', gameState.fen);
+  if (gameState.lastMove) {
+    imageUrl.searchParams.set('lastMove', gameState.lastMove);
+  }
+  if (instructions) {
+    imageUrl.searchParams.set('instructions', encodeURIComponent(instructions));
+  }
+  return imageUrl.toString();
+}
+
 // GET: Initial frame load
 export async function GET(req) {
-  const searchParams = req.nextUrl.searchParams;
-  const gameId = searchParams.get('gameId');
-  
-  let gameState;
-  if (gameId) {
-    gameState = await getGame(gameId);
-  }
-  
-  if (!gameState) {
-    gameState = await createGame();
-  }
-
-  const instructions = generateInstructions(gameState);
-  const imageUrl = `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}${gameState.lastMove ? `&lastMove=${encodeURIComponent(gameState.lastMove)}` : ''}`;
-
-  return new NextResponse(
-    `<!DOCTYPE html>
-    <html>
-      <head>
-        <title>Chess Frame Game</title>
-        <meta property="og:title" content="Chess Frame Game" />
-        <meta property="og:description" content="Play chess against an AI opponent on Farcaster" />
-        <meta property="og:image" content="${imageUrl}" />
-        <meta property="fc:frame" content="vNext" />
-        <meta property="fc:frame:image" content="${imageUrl}" />
-        <meta property="fc:frame:image:aspect_ratio" content="1:1" />
-        <meta property="fc:frame:input:text" content="Type a move (e.g., e4, Nf3)" />
-        <meta property="fc:frame:button:1" content="Make Move" />
-        <meta property="fc:frame:button:2" content="New Game" />
-        <meta property="fc:frame:button:3" content="Show Legal Moves" />
-      </head>
-    </html>`,
-    {
-      headers: {
-        'Content-Type': 'text/html',
-      },
+  try {
+    const searchParams = req.nextUrl.searchParams;
+    const gameId = searchParams.get('gameId');
+    
+    let gameState;
+    if (gameId) {
+      gameState = await getGame(gameId);
     }
-  );
+    
+    if (!gameState) {
+      gameState = await createGame();
+    }
+
+    const instructions = generateInstructions(gameState);
+    const imageUrl = getImageUrl(gameState, instructions);
+
+    return new NextResponse(
+      `<!DOCTYPE html>
+      <html>
+        <head>
+          <title>Chess Frame Game</title>
+          <meta property="fc:frame" content="vNext" />
+          <meta property="fc:frame:image" content="${imageUrl}" />
+          <meta property="fc:frame:image:aspect_ratio" content="1:1" />
+          <meta property="fc:frame:button:1" content="Make Move" />
+          <meta property="fc:frame:button:2" content="New Game" />
+          <meta property="fc:frame:button:3" content="Show Legal Moves" />
+          <meta property="fc:frame:input:text" content="Type a move (e.g., e4, Nf3)" />
+          <meta property="og:title" content="Chess Frame Game" />
+          <meta property="og:description" content="Play chess against an AI opponent on Farcaster" />
+          <meta property="og:image" content="${imageUrl}" />
+        </head>
+      </html>`,
+      {
+        headers: {
+          'Content-Type': 'text/html',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Frame error:', error);
+    return new NextResponse('Error', { status: 500 });
+  }
 }
 
 // POST: Handle frame interactions
@@ -88,11 +105,12 @@ export async function POST(req) {
     // Handle New Game
     if (buttonIndex === 2) {
       gameState = await createGame();
+      const instructions = 'New game started! White to move.';
       return new NextResponse(
         JSON.stringify({
           frames: [{
             version: 'vNext',
-            image: `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}&instructions=New game started! White to move.`,
+            image: getImageUrl(gameState, instructions),
             buttons: [
               { text: 'Make Move' },
               { text: 'New Game' },
@@ -117,7 +135,7 @@ export async function POST(req) {
         JSON.stringify({
           frames: [{
             version: 'vNext',
-            image: `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}&instructions=Legal moves: ${moveDisplay}`,
+            image: getImageUrl(gameState, `Legal moves: ${moveDisplay}`),
             buttons: [
               { text: 'Make Move' },
               { text: 'New Game' },
@@ -141,7 +159,7 @@ export async function POST(req) {
           JSON.stringify({
             frames: [{
               version: 'vNext',
-              image: `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}&instructions=Please enter a move first!`,
+              image: getImageUrl(gameState, 'Please enter a move first!'),
               buttons: [
                 { text: 'Make Move' },
                 { text: 'New Game' },
@@ -184,7 +202,7 @@ export async function POST(req) {
           JSON.stringify({
             frames: [{
               version: 'vNext',
-              image: `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}&instructions=${encodeURIComponent(instructions)}`,
+              image: getImageUrl(gameState, instructions),
               buttons: [
                 { text: 'Make Move' },
                 { text: 'New Game' },
@@ -206,7 +224,7 @@ export async function POST(req) {
           JSON.stringify({
             frames: [{
               version: 'vNext',
-              image: `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}&instructions=Invalid move! Try: ${moveHints}`,
+              image: getImageUrl(gameState, `Invalid move! Try: ${moveHints}`),
               buttons: [
                 { text: 'Make Move' },
                 { text: 'New Game' },
@@ -220,6 +238,8 @@ export async function POST(req) {
         );
       }
     }
+
+    throw new Error('Invalid button index');
 
   } catch (error) {
     console.error('Frame error:', error);
