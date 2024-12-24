@@ -15,13 +15,15 @@ export async function GET(req) {
     const lastMove = searchParams.get('lastMove');
     const instructions = searchParams.get('instructions');
 
-    const chess = new Chess(fen);
+    const chess = new Chess();
 
-    // Validate FEN
-    if (!chess.validate_fen(fen).valid) {
-      throw new Error('Invalid FEN string');
+    // Validate FEN string
+    const validation = chess.validateFen(fen);
+    if (!validation.valid) {
+      throw new Error(`Invalid FEN string: ${validation.error}`);
     }
 
+    chess.load(fen);
     const board = chess.board();
 
     const size = 1000;
@@ -42,6 +44,7 @@ export async function GET(req) {
             padding: '20px',
           }}
         >
+          {/* Render Chess Board */}
           <div
             style={{
               display: 'grid',
@@ -57,12 +60,11 @@ export async function GET(req) {
             {board.flat().map((piece, i) => {
               const row = Math.floor(i / 8);
               const col = i % 8;
-              const square = `${String.fromCharCode(97 + col)}${8 - row}`;
               const isBlackSquare = (row + col) % 2 === 1;
 
               return (
                 <div
-                  key={square}
+                  key={`${row}-${col}`}
                   style={{
                     backgroundColor: isBlackSquare ? '#B58863' : '#F0D9B5',
                     width: `${squareSize}px`,
@@ -73,41 +75,15 @@ export async function GET(req) {
                     color: '#000000',
                     fontSize: `${fontSize}px`,
                     fontFamily: 'serif',
-                    position: 'relative',
                   }}
                 >
                   {piece ? pieces[piece.color === 'w' ? piece.type.toUpperCase() : piece.type.toLowerCase()] : ''}
-                  {col === 0 && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: '4px',
-                        top: '4px',
-                        fontSize: '16px',
-                        color: isBlackSquare ? '#F0D9B5' : '#B58863',
-                      }}
-                    >
-                      {8 - row}
-                    </div>
-                  )}
-                  {row === 7 && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        right: '4px',
-                        bottom: '4px',
-                        fontSize: '16px',
-                        color: isBlackSquare ? '#F0D9B5' : '#B58863',
-                      }}
-                    >
-                      {String.fromCharCode(97 + col)}
-                    </div>
-                  )}
                 </div>
               );
             })}
           </div>
 
+          {/* Render Instructions */}
           {instructions && (
             <div
               style={{
@@ -123,6 +99,7 @@ export async function GET(req) {
             </div>
           )}
 
+          {/* Render Last Move */}
           {lastMove && (
             <div
               style={{
@@ -142,7 +119,7 @@ export async function GET(req) {
         headers: {
           'content-type': 'image/png',
           'cache-control': 'no-store, must-revalidate',
-          'access-control-allow-origin': '*'
+          'access-control-allow-origin': '*',
         },
       }
     );
@@ -172,7 +149,7 @@ export async function GET(req) {
         headers: {
           'content-type': 'image/png',
           'cache-control': 'no-store, must-revalidate',
-          'access-control-allow-origin': '*'
+          'access-control-allow-origin': '*',
         },
       }
     );
