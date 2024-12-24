@@ -17,13 +17,11 @@ export async function GET(req) {
 
     const chess = new Chess();
 
-    // Validate FEN string
-    const validation = chess.validateFen(fen);
-    if (!validation.valid) {
-      throw new Error(`Invalid FEN string: ${validation.error}`);
+    // Validate FEN by attempting to load it
+    if (!chess.load(fen)) {
+      throw new Error(`Invalid FEN string: ${fen}`);
     }
 
-    chess.load(fen);
     const board = chess.board();
 
     const size = 1000;
