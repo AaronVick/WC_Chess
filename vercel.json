@@ -1,0 +1,11 @@
+{
+    "buildCommand": "next build",
+    "devCommand": "next dev",
+    "installCommand": "npm install",
+    "framework": "nextjs",
+    "outputDirectory": ".next",
+    "regions": ["iad1"],
+    "env": {
+      "NEXT_PUBLIC_HOST": "https://your-domain.vercel.app"
+    }
+  }
