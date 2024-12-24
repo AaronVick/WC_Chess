@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Chess } from 'chess.js';
-import { ChessEngine } from '@/lib/chess-engine';
-import { createGame, getGame, updateGame } from '@/lib/game-state';
+import { ChessEngine } from '../../../lib/chess-engine';
+import { createGame, getGame, updateGame } from '../../../lib/game-state';
 
 const BASE_URL = process.env.NEXT_PUBLIC_HOST;
 
@@ -9,7 +9,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_HOST;
 function generateMoveHints(fen) {
   const chess = new Chess(fen);
   const legalMoves = chess.moves({ verbose: true });
-  // Get a few sample moves to show as examples
   const sampleMoves = legalMoves.slice(0, 3).map(move => move.san);
   return sampleMoves.join(', ');
 }
@@ -31,14 +30,25 @@ function generateInstructions(gameState) {
   return 'Start a new game or make your move!';
 }
 
-function generateFrameHtml({ gameState, errorMessage }) {
-  const instructions = generateInstructions(gameState);
-  const imageUrl = `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}${gameState.lastMove ? `&lastMove=${encodeURIComponent(gameState.lastMove)}` : ''}&instructions=${encodeURIComponent(instructions)}`;
+// GET: Initial frame load
+export async function GET(req) {
+  const searchParams = req.nextUrl.searchParams;
+  const gameId = searchParams.get('gameId');
   
-  const inputHint = errorMessage ? 'Invalid move. Try again with a legal move.' :
-    'Type a move like "e4" (pawn to e4) or "Nf3" (knight to f3)';
+  let gameState;
+  if (gameId) {
+    gameState = await getGame(gameId);
+  }
+  
+  if (!gameState) {
+    gameState = await createGame();
+  }
 
-  return `<!DOCTYPE html>
+  const instructions = generateInstructions(gameState);
+  const imageUrl = `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}${gameState.lastMove ? `&lastMove=${encodeURIComponent(gameState.lastMove)}` : ''}`;
+
+  return new NextResponse(
+    `<!DOCTYPE html>
     <html>
       <head>
         <title>Chess Frame Game</title>
@@ -48,16 +58,21 @@ function generateFrameHtml({ gameState, errorMessage }) {
         <meta property="fc:frame" content="vNext" />
         <meta property="fc:frame:image" content="${imageUrl}" />
         <meta property="fc:frame:image:aspect_ratio" content="1:1" />
-        <meta property="fc:frame:input:text" content="${inputHint}" />
+        <meta property="fc:frame:input:text" content="Type a move (e.g., e4, Nf3)" />
         <meta property="fc:frame:button:1" content="Make Move" />
         <meta property="fc:frame:button:2" content="New Game" />
         <meta property="fc:frame:button:3" content="Show Legal Moves" />
-        ${errorMessage ? `<meta property="fc:frame:state" content="${encodeURIComponent(JSON.stringify({ error: errorMessage }))}" />` : ''}
       </head>
-    </html>`;
+    </html>`,
+    {
+      headers: {
+        'Content-Type': 'text/html',
+      },
+    }
+  );
 }
 
-// POST handler
+// POST: Handle frame interactions
 export async function POST(req) {
   try {
     const data = await req.json();
@@ -83,7 +98,7 @@ export async function POST(req) {
               { text: 'New Game' },
               { text: 'Show Legal Moves' }
             ],
-            inputText: 'Enter a move like "e4" for pawn to e4',
+            inputText: 'Enter a move like "e4" or "Nf3"',
             state: { gameId: gameState.id }
           }]
         }),
@@ -142,20 +157,22 @@ export async function POST(req) {
 
       try {
         // Make player's move
-        chess.move(inputText, { sloppy: true });
+        const playerMove = chess.move(inputText, { sloppy: true });
         
-        // Make computer's move
-        const engine = new ChessEngine(chess.fen());
-        const computerMove = engine.getBestMove();
-        
-        if (computerMove) {
-          chess.move(computerMove);
+        // Make computer's move if the game isn't over
+        if (!chess.isGameOver()) {
+          const engine = new ChessEngine(chess.fen());
+          const computerMove = engine.getBestMove();
+          
+          if (computerMove) {
+            chess.move(computerMove);
+          }
         }
 
         // Update game state
         gameState = await updateGame(gameState.id, {
           fen: chess.fen(),
-          lastMove: computerMove,
+          lastMove: playerMove.san,
           status: chess.isGameOver() ? 
             (chess.isCheckmate() ? 'checkmate' : chess.isDraw() ? 'draw' : 'stalemate') : 
             'active'
@@ -167,7 +184,7 @@ export async function POST(req) {
           JSON.stringify({
             frames: [{
               version: 'vNext',
-              image: `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}&lastMove=${computerMove}&instructions=${encodeURIComponent(instructions)}`,
+              image: `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}&instructions=${encodeURIComponent(instructions)}`,
               buttons: [
                 { text: 'Make Move' },
                 { text: 'New Game' },
@@ -184,17 +201,18 @@ export async function POST(req) {
         );
 
       } catch (moveError) {
+        const moveHints = generateMoveHints(gameState.fen);
         return new NextResponse(
           JSON.stringify({
             frames: [{
               version: 'vNext',
-              image: `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}&instructions=Invalid move! Try one of these: ${generateMoveHints(gameState.fen)}`,
+              image: `${BASE_URL}/api/image?fen=${encodeURIComponent(gameState.fen)}&instructions=Invalid move! Try: ${moveHints}`,
               buttons: [
                 { text: 'Make Move' },
                 { text: 'New Game' },
                 { text: 'Show Legal Moves' }
               ],
-              inputText: 'Invalid move. Try again with a legal move.',
+              inputText: 'Invalid move. Try a legal move.',
               state: { gameId: gameState.id, error: 'Invalid move' }
             }]
           }),
