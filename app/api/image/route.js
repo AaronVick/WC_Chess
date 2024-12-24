@@ -1,3 +1,4 @@
+// File: app/api/image/route.js
 import { ImageResponse } from '@vercel/og';
 import { Chess } from 'chess.js';
 import { NextResponse } from 'next/server';
@@ -15,34 +16,40 @@ export async function GET(req) {
     const fen = searchParams.get('fen') || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const lastMove = searchParams.get('lastMove');
     const instructions = searchParams.get('instructions');
-    
+
     const chess = new Chess(fen);
     const board = chess.board();
+
+    // Ensure width and height are equal for 1:1 aspect ratio
+    const size = 1000;
+    const squareSize = Math.floor(size * 0.8 / 8); // 80% of size for board
+    const fontSize = Math.floor(squareSize * 0.7); // 70% of square size for pieces
 
     return new ImageResponse(
       (
         <div
           style={{
+            width: '100%',
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'white',
-            width: '100%',
-            height: '100%',
+            backgroundColor: '#1a1a1a',
             padding: '20px',
           }}
         >
+          {/* Chess Board */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(8, 1fr)',
-              gap: '1px',
-              backgroundColor: '#444',
-              padding: '8px',
-              borderRadius: '8px',
-              width: '500px',
-              height: '500px',
+              gap: '2px',
+              padding: '10px',
+              backgroundColor: '#404040',
+              borderRadius: '12px',
+              width: `${squareSize * 8 + 20}px`,
+              height: `${squareSize * 8 + 20}px`,
             }}
           >
             {board.flat().map((piece, i) => {
@@ -50,21 +57,20 @@ export async function GET(req) {
               const col = i % 8;
               const square = `${String.fromCharCode(97 + col)}${8 - row}`;
               const isBlackSquare = (row + col) % 2 === 1;
-              const isLastMoveSquare = lastMove && square === lastMove;
               
               return (
                 <div
-                  key={i}
                   style={{
-                    backgroundColor: isLastMoveSquare ? '#FFEB3B' : 
-                      (isBlackSquare ? '#B58863' : '#F0D9B5'),
+                    backgroundColor: isBlackSquare ? '#B58863' : '#F0D9B5',
+                    width: `${squareSize}px`,
+                    height: `${squareSize}px`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '48px',
+                    color: piece?.color === 'w' ? '#000000' : '#000000',
+                    fontSize: `${fontSize}px`,
+                    fontFamily: 'serif',
                     position: 'relative',
-                    width: '100%',
-                    height: '100%',
                   }}
                 >
                   {piece ? pieces[piece.color === 'w' ? piece.type.toUpperCase() : piece.type.toLowerCase()] : ''}
@@ -74,7 +80,7 @@ export async function GET(req) {
                         position: 'absolute',
                         left: '4px',
                         top: '4px',
-                        fontSize: '12px',
+                        fontSize: '16px',
                         color: isBlackSquare ? '#F0D9B5' : '#B58863',
                       }}
                     >
@@ -87,7 +93,7 @@ export async function GET(req) {
                         position: 'absolute',
                         right: '4px',
                         bottom: '4px',
-                        fontSize: '12px',
+                        fontSize: '16px',
                         color: isBlackSquare ? '#F0D9B5' : '#B58863',
                       }}
                     >
@@ -98,34 +104,76 @@ export async function GET(req) {
               );
             })}
           </div>
+
+          {/* Instructions */}
           {instructions && (
             <div
               style={{
                 marginTop: '20px',
-                fontSize: '24px',
+                fontSize: '32px',
                 textAlign: 'center',
-                color: '#444',
-                maxWidth: '480px',
-                wordWrap: 'break-word'
+                color: '#ffffff',
+                maxWidth: '90%',
+                wordWrap: 'break-word',
               }}
             >
               {decodeURIComponent(instructions)}
             </div>
           )}
+
+          {/* Last Move */}
+          {lastMove && (
+            <div
+              style={{
+                marginTop: '10px',
+                fontSize: '24px',
+                color: '#858585',
+              }}
+            >
+              Last move: {lastMove}
+            </div>
+          )}
         </div>
       ),
       {
-        width: 600,
-        height: 700,
+        width: size,
+        height: size,
         headers: {
           'content-type': 'image/png',
-          'cache-control': 'public, max-age=0, must-revalidate',
+          'cache-control': 'no-store, must-revalidate',
           'access-control-allow-origin': '*'
-        }
+        },
       }
     );
   } catch (error) {
     console.error('Image generation error:', error);
-    return new NextResponse('Error generating image', { status: 500 });
+    // Return a simple error image
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#1a1a1a',
+            color: '#ffffff',
+            fontSize: '24px',
+          }}
+        >
+          Error generating chess board
+        </div>
+      ),
+      {
+        width: 1000,
+        height: 1000,
+        headers: {
+          'content-type': 'image/png',
+          'cache-control': 'no-store, must-revalidate',
+          'access-control-allow-origin': '*'
+        },
+      }
+    );
   }
 }
