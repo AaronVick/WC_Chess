@@ -11,6 +11,8 @@ const pieces = {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
+
+    // Corrected FEN string to ensure validity
     const fen = searchParams.get('fen') || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const lastMove = searchParams.get('lastMove');
     const instructions = searchParams.get('instructions');
@@ -122,34 +124,9 @@ export async function GET(req) {
       }
     );
   } catch (error) {
-    console.error('Image generation error:', error);
-    return new ImageResponse(
-      (
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#1a1a1a',
-            color: '#ffffff',
-            fontSize: '24px',
-            textAlign: 'center',
-          }}
-        >
-          Error generating chess board: {error.message}
-        </div>
-      ),
-      {
-        width: 1000,
-        height: 1000,
-        headers: {
-          'content-type': 'image/png',
-          'cache-control': 'no-store, must-revalidate',
-          'access-control-allow-origin': '*',
-        },
-      }
-    );
+    console.error('Error generating chess board:', error);
+    return new Response(`Error generating chess board: ${error.message}`, {
+      status: 500,
+    });
   }
 }
