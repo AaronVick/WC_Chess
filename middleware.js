@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 export function middleware(request) {
   const url = request.nextUrl.clone();
 
-  // Handle Farcaster frame requests
+  // Set Open Graph meta tags for Farcaster
   if (url.pathname === '/') {
     url.searchParams.set('og:image', 'https://wc-chess.vercel.app/api/image');
     url.searchParams.set('og:title', 'Play Chess on Farcaster!');
@@ -12,7 +12,7 @@ export function middleware(request) {
 
   const response = NextResponse.rewrite(url);
 
-  // Add CORS headers for frame requests
+  // Add CORS headers to support Farcaster requests
   response.headers.set('Access-Control-Allow-Origin', '*');
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
