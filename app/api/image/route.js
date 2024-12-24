@@ -36,9 +36,9 @@ export async function GET(req) {
     const board = chess.board();
     console.log('Generated board:', board);
 
-    const size = 1000;
+    const size = 500; // Reduced size for Farcaster frame
     const squareSize = Math.floor(size * 0.8 / 8);
-    const fontSize = Math.floor(squareSize * 0.7);
+    const fontSize = Math.floor(squareSize * 0.6);
 
     return new ImageResponse(
       (
@@ -51,19 +51,19 @@ export async function GET(req) {
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: '#1a1a1a',
-            padding: '20px',
+            padding: '10px',
           }}
         >
           <div
             style={{
               display: 'flex',
               flexWrap: 'wrap',
-              gap: '2px',
+              gap: '1px',
               padding: '10px',
               backgroundColor: '#404040',
-              borderRadius: '12px',
-              width: `${squareSize * 8 + 20}px`,
-              height: `${squareSize * 8 + 20}px`,
+              borderRadius: '8px',
+              width: `${squareSize * 8}px`,
+              height: `${squareSize * 8}px`,
             }}
           >
             {board.flat().map((piece, i) => {
@@ -95,8 +95,8 @@ export async function GET(req) {
           {instructions && (
             <div
               style={{
-                marginTop: '20px',
-                fontSize: '32px',
+                marginTop: '10px',
+                fontSize: '18px',
                 textAlign: 'center',
                 color: '#ffffff',
                 maxWidth: '90%',
@@ -110,8 +110,8 @@ export async function GET(req) {
           {lastMove && (
             <div
               style={{
-                marginTop: '10px',
-                fontSize: '24px',
+                marginTop: '5px',
+                fontSize: '16px',
                 color: '#858585',
               }}
             >
@@ -153,8 +153,8 @@ export async function GET(req) {
         </div>
       ),
       {
-        width: 1000,
-        height: 1000,
+        width: 500,
+        height: 500,
         headers: {
           'content-type': 'image/png',
           'cache-control': 'no-store, must-revalidate',
