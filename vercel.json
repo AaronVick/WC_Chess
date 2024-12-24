@@ -1,11 +1,13 @@
 {
-    "buildCommand": "next build",
-    "devCommand": "next dev",
-    "installCommand": "npm install",
-    "framework": "nextjs",
-    "outputDirectory": ".next",
-    "regions": ["iad1"],
-    "env": {
-      "NEXT_PUBLIC_HOST": "https://your-domain.vercel.app"
-    }
-  }
+  "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "npm install",
+  "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_HOST": "https://wc-chess.vercel.app"
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/$1" }
+  ]
+}

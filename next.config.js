@@ -1,13 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    images: {
-      remotePatterns: [
-        {
-          protocol: 'https',
-          hostname: '**',
-        },
-      ],
-    },
+  reactStrictMode: true,
+  async rewrites() {
+    return [
+      {
+        source: '/',
+        destination: '/api/frame',
+      },
+    ];
+  },
+  env: {
+    NEXT_PUBLIC_HOST: process.env.NEXT_PUBLIC_HOST,
   }
-  
-  module.exports = nextConfig
+};
+
+module.exports = nextConfig;
