@@ -70,7 +70,7 @@ export async function GET(req) {
               const row = Math.floor(i / 8);
               const col = i % 8;
               const isBlackSquare = (row + col) % 2 === 1;
-    
+
               return (
                 <div
                   key={`${row}-${col}`}
@@ -91,7 +91,7 @@ export async function GET(req) {
               );
             })}
           </div>
-    
+
           {instructions && (
             <div
               style={{
@@ -106,7 +106,7 @@ export async function GET(req) {
               {decodeURIComponent(instructions)}
             </div>
           )}
-    
+
           {lastMove && (
             <div
               style={{
@@ -130,4 +130,37 @@ export async function GET(req) {
         },
       }
     );
-    
+  } catch (error) {
+    console.error('Error generating chess board:', error);
+
+    // Return an error image instead of a 403 or 500
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#1a1a1a',
+            color: '#ffffff',
+            fontSize: '24px',
+            textAlign: 'center',
+          }}
+        >
+          Error generating chess board: {error.message}
+        </div>
+      ),
+      {
+        width: 1000,
+        height: 1000,
+        headers: {
+          'content-type': 'image/png',
+          'cache-control': 'no-store, must-revalidate',
+          'access-control-allow-origin': '*',
+        },
+      }
+    );
+  }
+}
